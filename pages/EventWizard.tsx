@@ -48,7 +48,7 @@ const finalSchema = step1Schema.and(step2Schema); // combined for data type
 // Explicitly type FormData to match the output type
 type FormData = {
   title: string;
-  amount: number;
+  amount: number | string;
   category:
     | "Restauracje"
     | "Atrakcje"
@@ -73,7 +73,7 @@ const AddExpense = () => {
     mode: "onChange",
     defaultValues: {
       title: "",
-      amount: 0,
+      amount: "",
       category: "Restauracje",
       date: new Date().toISOString().split("T")[0],
       location: "",
