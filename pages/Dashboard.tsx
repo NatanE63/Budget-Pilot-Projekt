@@ -35,7 +35,7 @@ const Dashboard = () => {
   const remaining = budget.totalLimit - totalSpent;
   const percentageUsed = Math.min((totalSpent / budget.totalLimit) * 100, 100);
 
-  const recentExpenses = expenses.slice(0, 5);
+  const recentExpenses = expenses.slice(0, 4);
 
   // Group by Date for Chart
   const chartData = expenses
@@ -62,7 +62,7 @@ const Dashboard = () => {
     .sort((a, b) => a.fullDate.localeCompare(b.fullDate)); // Sort by full date, show all expenses
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Przegląd Budżetu</h1>
         <Link to="/add">
@@ -135,7 +135,7 @@ const Dashboard = () => {
             <CardTitle>Wydatki w czasie</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
+            <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>

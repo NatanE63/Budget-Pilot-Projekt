@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useStore } from "../lib/store";
@@ -13,13 +13,18 @@ import {
   CardContent,
 } from "../components/ui";
 import Stepper from "../components/Stepper";
+import ReCAPTCHA from "react-google-recaptcha";
 import { Category } from "../types";
+import { getCategoryIcon, getCategoryColor } from "../lib/utils";
 
 // --- ZOD SCHEMAS ---
 
 // Step 1: Basics (Amount, Title)
 const step1Schema = z.object({
-  title: z.string().min(2, "Nazwa wydatku jest wymagana"),
+  title: z
+    .string()
+    .min(2, "Nazwa wydatku jest wymagana")
+    .regex(/^[A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż]/, "Nazwa musi zaczynać się od litery"),
   amount: z.coerce.number().min(0.01, "Kwota musi być większa od 0"),
 });
 
@@ -33,17 +38,23 @@ const step2Schema = z.object({
     "Zakupy",
     "Inne",
   ] as const),
-  date: z.string().min(1, "Data jest wymagana"),
+  date: z
+    .string()
+    .min(1, "Data jest wymagana")
+    .refine(
+      (val) => new Date(val) <= new Date(),
+      "Data nie może być z przyszłości",
+    ),
   location: z.string().optional(),
   description: z.string().optional(),
 });
 
-// Step 3: Confirmation (just review)
+// Step 3: Confirmation (captcha)
 const step3Schema = z.object({
-  confirmed: z.literal(true),
+  captcha: z.string().min(1, "Potwierdź, że nie jesteś robotem"),
 });
 
-const finalSchema = step1Schema.and(step2Schema); // combined for data type
+const finalSchema = step1Schema.and(step2Schema).and(step3Schema); // combined for data type
 
 // Explicitly type FormData to match the output type
 type FormData = {
@@ -59,6 +70,7 @@ type FormData = {
   date: string;
   location?: string;
   description?: string;
+  captcha: string;
 };
 
 // --- WIZARD PAGE ---
@@ -69,7 +81,7 @@ const AddExpense = () => {
   const [currentStep, setCurrentStep] = useState(0);
 
   const form = useForm<FormData>({
-    resolver: zodResolver(finalSchema) as any,
+    resolver: zodResolver(finalSchema) as Resolver<FormData>,
     mode: "onChange",
     defaultValues: {
       title: "",
@@ -78,6 +90,7 @@ const AddExpense = () => {
       date: new Date().toISOString().split("T")[0],
       location: "",
       description: "",
+      captcha: "",
     },
   });
 
@@ -187,14 +200,43 @@ const AddExpense = () => {
               <div className="space-y-4 animate-fade-in">
                 <div className="space-y-2">
                   <Label>Kategoria</Label>
-                  <Select {...register("category")}>
-                    <option value="Restauracje">Restauracje</option>
-                    <option value="Atrakcje">Atrakcje</option>
-                    <option value="Transport">Transport</option>
-                    <option value="Nocleg">Nocleg</option>
-                    <option value="Zakupy">Zakupy</option>
-                    <option value="Inne">Inne</option>
-                  </Select>
+                  <Controller
+                    name="category"
+                    control={control}
+                    render={({ field }) => {
+                      const categories: Category[] = [
+                        "Restauracje",
+                        "Atrakcje",
+                        "Transport",
+                        "Nocleg",
+                        "Zakupy",
+                        "Inne",
+                      ];
+                      return (
+                        <div className="grid grid-cols-3 gap-2">
+                          {categories.map((cat) => {
+                            const Icon = getCategoryIcon(cat);
+                            const isSelected = field.value === cat;
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => field.onChange(cat)}
+                                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 text-xs font-medium transition-all ${
+                                  isSelected
+                                    ? "border-primary bg-primary/10 text-primary scale-105"
+                                    : "border-muted bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted"
+                                }`}
+                              >
+                                <Icon className="w-5 h-5" />
+                                {cat}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    }}
+                  />
                   {errors.category && (
                     <p className="text-red-500 text-xs">
                       {errors.category.message}
@@ -257,7 +299,24 @@ const AddExpense = () => {
                     )}
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <div className="flex justify-center mt-6">
+                  <Controller
+                    name="captcha"
+                    control={control}
+                    render={({ field }) => (
+                      <ReCAPTCHA
+                        sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" // Google Test Key
+                        onChange={(token) => field.onChange(token)}
+                      />
+                    )}
+                  />
+                </div>
+                {errors.captcha && (
+                  <p className="text-red-500 text-xs text-center mt-2">
+                    {errors.captcha.message}
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground mt-4">
                   Czy wszystko się zgadza?
                 </p>
               </div>

@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { useForm, Resolver, SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { useStore } from "../lib/store";
 import {
   Button,
@@ -9,15 +12,35 @@ import {
   CardContent,
   Label,
 } from "../components/ui";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "../components/Form";
 import { Settings as SettingsIcon, Save, Trash2 } from "lucide-react";
+
+const settingsSchema = z.object({
+  totalLimit: z.coerce.number().min(1, "Limit musi być większy od 0"),
+});
+
+type SettingsFormData = z.infer<typeof settingsSchema>;
 
 const Settings = () => {
   const { budget, updateBudget, resetExpenses } = useStore();
-  const [limit, setLimit] = useState(budget.totalLimit);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    updateBudget(Number(limit));
+  const form = useForm<SettingsFormData>({
+    resolver: zodResolver(settingsSchema) as Resolver<SettingsFormData>,
+    defaultValues: {
+      totalLimit: budget.totalLimit,
+    },
+  });
+
+  const onSubmit: SubmitHandler<SettingsFormData> = (data) => {
+    updateBudget(data.totalLimit);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -29,8 +52,6 @@ const Settings = () => {
       )
     ) {
       resetExpenses();
-      setSaved(true); // Reuse saved state to show some feedback or just let it clear
-      // Optional: Navigate to dashboard or show toast
       setTimeout(() => alert("Wydatki zostały zresetowane."), 100);
     }
   };
@@ -45,28 +66,37 @@ const Settings = () => {
         <CardHeader>
           <CardTitle>Limity i Waluta</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>Całkowity Limit Budżetu (PLN)</Label>
-            <Input
-              type="number"
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
-            />
-            <p className="text-xs text-muted-foreground">
-              To jest maksymalna kwota, którą planujesz wydać.
-            </p>
-          </div>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="totalLimit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Całkowity Limit Budżetu (PLN)</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      To jest maksymalna kwota, którą planujesz wydać.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <div className="space-y-2">
-            <Label>Waluta (Domyślna)</Label>
-            <Input value="PLN" disabled className="bg-muted" />
-          </div>
+              <div className="space-y-2">
+                <Label>Waluta (Domyślna)</Label>
+                <Input value="PLN" disabled className="bg-muted" />
+              </div>
 
-          <Button onClick={handleSave} className="w-full gap-2">
-            <Save className="w-4 h-4" />
-            {saved ? "Zapisano!" : "Zapisz Zmiany"}
-          </Button>
+              <Button type="submit" className="w-full gap-2">
+                <Save className="w-4 h-4" />
+                {saved ? "Zapisano!" : "Zapisz Zmiany"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 

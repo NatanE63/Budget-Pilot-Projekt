@@ -24,11 +24,19 @@ export function useStore() {
   }, [budget]);
 
   const addExpense = (expense: Expense) => {
-    setExpenses((prev) => [expense, ...prev]);
+    setExpenses((prev) => {
+      const updated = [expense, ...prev];
+      localStorage.setItem("budgetpilot_expenses", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const removeExpense = (id: string) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
+    setExpenses((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      localStorage.setItem("budgetpilot_expenses", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const updateBudget = (newLimit: number) => {
@@ -36,6 +44,7 @@ export function useStore() {
   };
 
   const resetExpenses = () => {
+    localStorage.setItem("budgetpilot_expenses", JSON.stringify([]));
     setExpenses([]);
   };
 

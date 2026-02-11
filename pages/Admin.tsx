@@ -1,6 +1,8 @@
 import React from "react";
 import { useStore } from "../lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui";
+import DataTable, { Column } from "../components/DataTable";
+import { Expense } from "../types";
 import {
   PieChart,
   Pie,
@@ -51,13 +53,9 @@ const Reports = () => {
                     data={categoryData}
                     cx="50%"
                     cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
+                    outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
-                    label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
-                    }
                   >
                     {categoryData.map((entry, index) => (
                       <Cell
@@ -118,34 +116,23 @@ const Reports = () => {
 
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Szczegółowa Tabela</h2>
-        {/* Simple Table reusing previous DataTable logic but simpler cols */}
-        <div className="border rounded-md overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="p-3 text-left">Nazwa</th>
-                <th className="p-3 text-left">Kategoria</th>
-                <th className="p-3 text-left">Data</th>
-                <th className="p-3 text-right">Kwota</th>
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.map((e) => (
-                <tr
-                  key={e.id}
-                  className="border-b last:border-0 hover:bg-muted/50"
-                >
-                  <td className="p-3">{e.title}</td>
-                  <td className="p-3">{e.category}</td>
-                  <td className="p-3">{e.date}</td>
-                  <td className="p-3 text-right font-medium">
-                    {formatMoney(e.amount, budget.currency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable<Expense>
+          data={expenses}
+          keyExtractor={(e) => e.id}
+          emptyMessage="Brak wydatków do wyświetlenia."
+          columns={
+            [
+              { header: "Nazwa", accessor: "title" },
+              { header: "Kategoria", accessor: "category" },
+              { header: "Data", accessor: "date" },
+              {
+                header: "Kwota",
+                accessor: (e) => formatMoney(e.amount, budget.currency),
+                className: "text-right font-medium",
+              },
+            ] satisfies Column<Expense>[]
+          }
+        />
       </div>
     </div>
   );

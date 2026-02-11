@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useStore } from "../lib/store";
 import { ExpenseCard } from "../components/EventCard"; // Actually ExpenseCard content
 import { Input, Select, Button } from "../components/ui";
-import { Category } from "../types";
+import { Category, isCategory } from "../types";
 import { Search, Filter } from "lucide-react";
 import * as Popover from "@radix-ui/react-popover";
 
@@ -53,7 +53,10 @@ const Expenses = () => {
                 <h4 className="font-medium mb-2">Kategoria</h4>
                 <Select
                   value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value as any)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCategoryFilter(isCategory(val) ? val : "All");
+                  }}
                 >
                   <option value="All">Wszystkie</option>
                   <option value="Restauracje">Restauracje</option>
