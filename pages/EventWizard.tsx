@@ -305,7 +305,7 @@ const AddExpense = () => {
                     control={control}
                     render={({ field }) => (
                       <ReCAPTCHA
-                        sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" // Google Test Key
+                        sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
                         onChange={(token) => field.onChange(token)}
                       />
                     )}
