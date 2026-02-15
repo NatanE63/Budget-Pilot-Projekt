@@ -39,13 +39,18 @@ export function useStore() {
     });
   };
 
-  const updateBudget = (newLimit: number) => {
-    setBudget((prev) => ({ ...prev, totalLimit: newLimit }));
+  const updateBudget = (updates: Partial<Budget>) => {
+    setBudget((prev) => ({ ...prev, ...updates }));
   };
 
   const resetExpenses = () => {
     localStorage.setItem("budgetpilot_expenses", JSON.stringify([]));
     setExpenses([]);
+  };
+
+  const replaceAllExpenses = (newExpenses: Expense[]) => {
+    localStorage.setItem("budgetpilot_expenses", JSON.stringify(newExpenses));
+    setExpenses(newExpenses);
   };
 
   return {
@@ -55,5 +60,6 @@ export function useStore() {
     removeExpense,
     updateBudget,
     resetExpenses,
+    replaceAllExpenses,
   };
 }

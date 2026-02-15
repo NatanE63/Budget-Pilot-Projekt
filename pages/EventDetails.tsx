@@ -83,15 +83,39 @@ const ExpenseDetails = () => {
               <h1 className="text-2xl font-bold">{expense.title}</h1>
               <span className="text-muted-foreground">{expense.category}</span>
             </div>
-            <div className="text-2xl font-bold text-primary">
-              {formatMoney(expense.amount, budget.currency)}
+            <div className="text-right">
+              {expense.originalAmount &&
+              expense.originalCurrency &&
+              expense.originalCurrency !== budget.currency ? (
+                <div className="flex flex-col items-end">
+                  <div className="text-2xl font-bold text-primary">
+                    {formatMoney(
+                      expense.originalAmount,
+                      expense.originalCurrency,
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    ≈ {formatMoney(expense.amount, budget.currency)}
+                  </div>
+                  {expense.exchangeRate && (
+                    <div className="text-xs text-muted-foreground opacity-80 mt-1">
+                      Kurs: {expense.exchangeRate.toFixed(4)} (z dnia{" "}
+                      {expense.date.split("-").reverse().join("-")})
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-2xl font-bold text-primary">
+                  {formatMoney(expense.amount, budget.currency)}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="mt-8 space-y-4">
             <div className="flex items-center gap-3">
               <Calendar className="w-5 h-5 text-muted-foreground" />
-              <span>{formatDate(expense.date)}</span>
+              <span>{expense.date.split("-").reverse().join("-")}</span>
             </div>
             {expense.location && (
               <div className="flex items-center gap-3">

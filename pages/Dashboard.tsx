@@ -28,8 +28,25 @@ import {
 import { formatMoney, getCategoryIcon, getCategoryColor } from "../lib/utils";
 import { Link } from "react-router-dom";
 
+import { generateRandomExpense } from "../lib/mockData";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
+
 const Dashboard = () => {
-  const { expenses, budget } = useStore();
+  const { expenses, budget, addExpense } = useStore();
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleAddRandom = async () => {
+    setIsGenerating(true);
+    try {
+      const expense = await generateRandomExpense(budget.currency);
+      addExpense(expense);
+    } catch (error) {
+      console.error("Failed to generate random expense:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const totalSpent = expenses.reduce((sum, item) => sum + item.amount, 0);
   const remaining = budget.totalLimit - totalSpent;
@@ -65,9 +82,22 @@ const Dashboard = () => {
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Przegląd Budżetu</h1>
-        <Link to="/add">
-          <Button>+ Nowy Wydatek</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleAddRandom}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              "Generuj losowy"
+            )}
+          </Button>
+          <Link to="/add">
+            <Button>+ Nowy Wydatek</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -213,12 +243,28 @@ const Dashboard = () => {
                           {item.title}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {item.date}
+                          {item.date.split("-").reverse().join("-")}
                         </p>
                       </div>
                     </div>
-                    <div className="font-bold text-sm">
-                      {formatMoney(item.amount, budget.currency)}
+                    <div className="flex flex-col items-end">
+                      <div className="font-bold text-sm">
+                        {item.originalAmount &&
+                        item.originalCurrency &&
+                        item.originalCurrency !== budget.currency
+                          ? formatMoney(
+                              item.originalAmount,
+                              item.originalCurrency,
+                            )
+                          : formatMoney(item.amount, budget.currency)}
+                      </div>
+                      {item.originalAmount &&
+                        item.originalCurrency &&
+                        item.originalCurrency !== budget.currency && (
+                          <div className="text-xs font-normal text-muted-foreground">
+                            ≈ {formatMoney(item.amount, budget.currency)}
+                          </div>
+                        )}
                     </div>
                   </div>
                 );

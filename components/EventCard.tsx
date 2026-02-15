@@ -6,6 +6,7 @@ import {
   formatDate,
   getCategoryIcon,
   getCategoryColor,
+  getCategoryBorderColor,
 } from "../lib/utils";
 import { MapPin, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -21,12 +22,12 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
 }) => {
   const Icon = getCategoryIcon(expense.category);
   const colorClass = getCategoryColor(expense.category);
+  const borderColorClass = getCategoryBorderColor(expense.category);
 
   return (
     <Link to={`/expenses/${expense.id}`} className="block h-full @container">
       <Card
-        className="group h-full flex flex-col @md:flex-row hover:shadow-md transition-all cursor-pointer border-l-4"
-        style={{ borderLeftColor: "var(--primary)" }}
+        className={`group h-full flex flex-col @md:flex-row hover:shadow-md transition-all cursor-pointer border-l-4 ${borderColorClass}`}
       >
         <CardHeader className="p-4 pb-2 @md:pb-4 flex flex-row items-start justify-between space-y-0 @md:flex-col @md:justify-start @md:w-1/3 @md:border-r @md:border-b-0">
           <div className="space-y-1">
@@ -40,8 +41,21 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
               {expense.title}
             </CardTitle>
           </div>
-          <div className="text-lg font-bold text-foreground @md:mt-2">
-            {formatMoney(expense.amount, currency)}
+          <div className="flex flex-col items-end @md:items-start @md:mt-2">
+            <div className="text-lg font-bold text-foreground">
+              {expense.originalAmount &&
+              expense.originalCurrency &&
+              expense.originalCurrency !== currency
+                ? formatMoney(expense.originalAmount, expense.originalCurrency)
+                : formatMoney(expense.amount, currency)}
+            </div>
+            {expense.originalAmount &&
+              expense.originalCurrency &&
+              expense.originalCurrency !== currency && (
+                <div className="text-xs font-normal text-muted-foreground">
+                  ≈ {formatMoney(expense.amount, currency)}
+                </div>
+              )}
           </div>
         </CardHeader>
 

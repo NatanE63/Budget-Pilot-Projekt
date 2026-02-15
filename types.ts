@@ -7,7 +7,7 @@ export type Category =
   | "Zakupy"
   | "Inne";
 
-const CATEGORIES: readonly string[] = [
+export const CATEGORIES: readonly string[] = [
   "Restauracje",
   "Atrakcje",
   "Transport",
@@ -24,17 +24,20 @@ export function isCategory(value: string): value is Category {
 export interface Expense {
   id: string;
   title: string;
-  amount: number;
+  amount: number; // Always in Base Currency (Budget.currency)
   date: string;
   category: Category;
   description?: string;
   location?: string;
-  receiptImage?: string; // Optional URL placeholder
+  receiptImage?: string; 
+  originalAmount?: number; // Amount in transaction currency
+  originalCurrency?: string; // Transaction currency code (e.g., EUR)
+  exchangeRate?: number; // Rate used for conversion
 }
 
 export interface Budget {
   totalLimit: number;
-  currency: string;
+  currency: string; // Base Currency (e.g., PLN)
 }
 
 // Utility Types

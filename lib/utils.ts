@@ -74,6 +74,23 @@ export const getCategoryColor = (category: Category) => {
   }
 };
 
+export const getCategoryBorderColor = (category: Category) => {
+  switch (category) {
+    case "Restauracje":
+      return "border-orange-500 bg-orange-50"; // Added bg for subtle effect if needed, but border is primary
+    case "Transport":
+      return "border-blue-500 bg-blue-50";
+    case "Atrakcje":
+      return "border-purple-500 bg-purple-50";
+    case "Zakupy":
+      return "border-pink-500 bg-pink-50";
+    case "Nocleg":
+      return "border-indigo-500 bg-indigo-50";
+    default:
+      return "border-gray-500 bg-gray-50";
+  }
+};
+
 export const getCategorySearchTerm = (category: Category): string => {
   switch (category) {
     case "Restauracje":

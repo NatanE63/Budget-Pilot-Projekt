@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useForm, Resolver, SubmitHandler } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useStore } from "../lib/store";
@@ -20,29 +20,94 @@ import {
   FormControl,
   FormMessage,
 } from "../components/Form";
-import { Settings as SettingsIcon, Save, Trash2 } from "lucide-react";
+import {
+  Settings as SettingsIcon,
+  Save,
+  Trash2,
+  Coins,
+  Loader2,
+} from "lucide-react";
+import { CURRENCIES, fetchExchangeRate } from "../lib/api";
 
 const settingsSchema = z.object({
   totalLimit: z.coerce.number().min(1, "Limit musi być większy od 0"),
+  currency: z.string().min(3, "Wybierz walutę"),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
 const Settings = () => {
-  const { budget, updateBudget, resetExpenses } = useStore();
-  const [saved, setSaved] = useState(false);
+  const { budget, updateBudget, resetExpenses, expenses, replaceAllExpenses } =
+    useStore();
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const form = useForm<SettingsFormData>({
-    resolver: zodResolver(settingsSchema) as Resolver<SettingsFormData>,
+    resolver: zodResolver(settingsSchema) as any,
     defaultValues: {
       totalLimit: budget.totalLimit,
+      currency: budget.currency,
     },
   });
 
-  const onSubmit: SubmitHandler<SettingsFormData> = (data) => {
-    updateBudget(data.totalLimit);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const onSubmit: SubmitHandler<SettingsFormData> = async (data) => {
+    setIsUpdating(true);
+    try {
+      const oldCurrency = budget.currency;
+      const newCurrency = data.currency;
+
+      if (oldCurrency !== newCurrency) {
+        // Need to convert expenses
+        const updatedExpenses = await Promise.all(
+          expenses.map(async (expense) => {
+            // If expense already has originalAmount/Currency, it means it was a foreign transaction.
+            // We need to convert from THAT original currency to the NEW base currency.
+            if (expense.originalAmount && expense.originalCurrency) {
+              const rate = await fetchExchangeRate(
+                expense.originalCurrency,
+                newCurrency,
+              );
+              if (rate) {
+                return {
+                  ...expense,
+                  amount: expense.originalAmount * rate, // New base amount
+                  // originalAmount and originalCurrency stay the same
+                  exchangeRate: rate,
+                };
+              }
+            } else {
+              // Expense was in the OLD base currency (treated as "local").
+              // Now it becomes "foreign" (or just converted if we don't want to keep history?
+              // User said: "przewalutowal orgianlna kwote do tej obecnej" - convert original amount to current.
+              // Logic: Expense was 100 PLN. Base changes to EUR.
+              // It should now handle 100 PLN as "original" and calculate EUR amount.
+              const rate = await fetchExchangeRate(oldCurrency, newCurrency);
+              if (rate) {
+                return {
+                  ...expense,
+                  amount: expense.amount * rate,
+                  originalAmount: expense.amount, // Save the old base amount as original
+                  originalCurrency: oldCurrency,
+                  exchangeRate: rate,
+                };
+              }
+            }
+            return expense; // Fallback if rate fails
+          }),
+        );
+        replaceAllExpenses(updatedExpenses);
+      }
+
+      updateBudget({
+        totalLimit: data.totalLimit,
+        currency: data.currency,
+      });
+      alert("Ustawienia zostały zaktualizowane!");
+    } catch (error) {
+      console.error("Failed to update settings:", error);
+      alert("Wystąpił błąd podczas aktualizacji.");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleReset = () => {
@@ -68,7 +133,10 @@ const Settings = () => {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="gap-4 flex flex-col pt-4"
+            >
               <FormField
                 control={form.control}
                 name="totalLimit"
@@ -86,14 +154,46 @@ const Settings = () => {
                 )}
               />
 
-              <div className="space-y-2">
-                <Label>Waluta (Domyślna)</Label>
-                <Input value="PLN" disabled className="bg-muted" />
-              </div>
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Waluta Główna</FormLabel>
+                    <div className="relative">
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none"
+                        {...field}
+                      >
+                        {CURRENCIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.code} - {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Coins className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground pointer-events-none" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      W tej walucie będą wyświetlane podsumowania.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <Button type="submit" className="w-full gap-2">
-                <Save className="w-4 h-4" />
-                {saved ? "Zapisano!" : "Zapisz Zmiany"}
+              <Button
+                type="submit"
+                className="w-full md:w-auto"
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />{" "}
+                    Aktualizowanie...
+                  </>
+                ) : (
+                  "Zapisz Ustawienia"
+                )}
               </Button>
             </form>
           </Form>

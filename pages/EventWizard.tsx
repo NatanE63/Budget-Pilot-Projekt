@@ -16,6 +16,8 @@ import Stepper from "../components/Stepper";
 import ReCAPTCHA from "react-google-recaptcha";
 import { Category } from "../types";
 import { getCategoryIcon, getCategoryColor } from "../lib/utils";
+import { CURRENCIES, fetchExchangeRate } from "../lib/api";
+import { Loader2 } from "lucide-react";
 
 // --- ZOD SCHEMAS ---
 
@@ -26,6 +28,7 @@ const step1Schema = z.object({
     .min(2, "Nazwa wydatku jest wymagana")
     .regex(/^[A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż]/, "Nazwa musi zaczynać się od litery"),
   amount: z.coerce.number().min(0.01, "Kwota musi być większa od 0"),
+  currency: z.string().min(3),
 });
 
 // Step 2: Details (Category, Date, Desc)
@@ -60,6 +63,7 @@ const finalSchema = step1Schema.and(step2Schema).and(step3Schema); // combined f
 type FormData = {
   title: string;
   amount: number | string;
+  currency: string;
   category:
     | "Restauracje"
     | "Atrakcje"
@@ -77,8 +81,11 @@ type FormData = {
 
 const AddExpense = () => {
   const navigate = useNavigate();
-  const { addExpense } = useStore();
+  const { addExpense, budget } = useStore();
   const [currentStep, setCurrentStep] = useState(0);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [isFetchingRate, setIsFetchingRate] = useState(false);
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(finalSchema) as Resolver<FormData>,
@@ -86,6 +93,7 @@ const AddExpense = () => {
     defaultValues: {
       title: "",
       amount: "",
+      currency: budget.currency,
       category: "Restauracje",
       date: new Date().toISOString().split("T")[0],
       location: "",
@@ -100,7 +108,41 @@ const AddExpense = () => {
     control,
     getValues,
     register,
+    watch,
+    setValue,
   } = form;
+
+  const watchedAmount = watch("amount");
+  const watchedCurrency = watch("currency");
+  const watchedDate = watch("date");
+
+  React.useEffect(() => {
+    const fetchRate = async () => {
+      const amountVal = parseFloat(watchedAmount as string);
+      
+      if (watchedCurrency === budget.currency) {
+        setExchangeRate(1);
+        setConvertedAmount(amountVal || 0);
+        return;
+      }
+
+      setIsFetchingRate(true);
+      const rate = await fetchExchangeRate(watchedCurrency, budget.currency, 1, watchedDate);
+      setIsFetchingRate(false);
+
+      if (rate) {
+        setExchangeRate(rate);
+        if (!watchedAmount || isNaN(amountVal)) {
+            setConvertedAmount(null);
+        } else {
+            setConvertedAmount(amountVal * rate);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(fetchRate, 500); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [watchedAmount, watchedCurrency, budget.currency, watchedDate]);
 
   const handleNext = async (e?: React.MouseEvent) => {
     e?.preventDefault(); // Prevent any default form submission if triggered by button
@@ -122,14 +164,30 @@ const AddExpense = () => {
   };
 
   const handleFinalSubmit = (data: FormData) => {
+    // Final calculation before adding
+    let finalAmount = Number(data.amount);
+    let finalOriginalAmount: number | undefined = undefined;
+    let finalOriginalCurrency: string | undefined = undefined;
+    let finalExchangeRate: number | undefined = undefined;
+
+    if (data.currency !== budget.currency && exchangeRate) {
+        finalOriginalAmount = finalAmount;
+        finalOriginalCurrency = data.currency;
+        finalExchangeRate = exchangeRate;
+        finalAmount = finalOriginalAmount * exchangeRate;
+    }
+
     addExpense({
       id: crypto.randomUUID(),
       title: data.title,
-      amount: Number(data.amount),
+      amount: finalAmount,
       category: data.category,
       date: data.date,
       location: data.location,
       description: data.description,
+      originalAmount: finalOriginalAmount,
+      originalCurrency: finalOriginalCurrency,
+      exchangeRate: finalExchangeRate,
     });
 
     // Slight delay for UX
@@ -179,17 +237,48 @@ const AddExpense = () => {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Kwota (PLN)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...register("amount")}
-                    placeholder="0.00"
-                  />
+                   <Label>Kwota i Waluta</Label>
+                   <div className="flex gap-2">
+                       <Input
+                         type="number"
+                         step="0.01"
+                         className="flex-1"
+                         {...register("amount")}
+                         placeholder="0.00"
+                       />
+                        <div className="w-24">
+                           <Select
+                              value={watch("currency")}
+                              onChange={(e) => setValue("currency", e.target.value, { shouldValidate: true })} 
+                           >
+                               {CURRENCIES.map(c => (
+                                   <option key={c.code} value={c.code}>{c.code}</option>
+                               ))}
+                           </Select>
+                        </div>
+                   </div>
                   {errors.amount && (
                     <p className="text-red-500 text-xs">
                       {errors.amount.message}
                     </p>
+                  )}
+                  {watchedCurrency !== budget.currency && (
+                      <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                          {isFetchingRate ? (
+                              <><Loader2 className="w-3 h-3 animate-spin"/> Przeliczanie...</>
+                          ) : (
+                              <span>
+                                  {convertedAmount !== null ? (
+                                      <>
+                                        ≈ {convertedAmount.toFixed(2)} {budget.currency}
+                                        {exchangeRate && <span className="text-xs opacity-70 ml-1">(Kurs: {exchangeRate.toFixed(4)})</span>}
+                                      </>
+                                  ) : (
+                                      <>{exchangeRate && <span>Kurs: {exchangeRate.toFixed(4)}</span>}</>
+                                  )}
+                              </span>
+                          )}
+                      </div>
                   )}
                 </div>
               </div>
@@ -280,7 +369,12 @@ const AddExpense = () => {
                     Podsumowanie
                   </h3>
                   <div className="text-4xl font-bold text-primary my-4">
-                    {Number(getValues("amount")).toFixed(2)} PLN
+                    {Number(getValues("amount")).toFixed(2)} {getValues("currency")}
+                    {getValues("currency") !== budget.currency && convertedAmount && (
+                         <div className="text-lg text-muted-foreground font-normal">
+                             ≈ {convertedAmount.toFixed(2)} {budget.currency}
+                         </div>
+                    )}
                   </div>
                   <div className="text-sm text-muted-foreground text-left space-y-1 pl-4 border-l-2 border-primary">
                     <p>
